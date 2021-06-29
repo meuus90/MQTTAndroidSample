@@ -2,6 +2,10 @@ package com.example.mqtt_testapp
 
 import android.database.DataSetObserver
 import android.os.Bundle
+import android.view.Menu
+import android.view.MenuItem
+import android.widget.Button
+import android.widget.EditText
 import android.widget.ListView
 import androidx.appcompat.app.AppCompatActivity
 import org.eclipse.paho.android.service.MqttAndroidClient
@@ -11,10 +15,32 @@ import timber.log.Timber
 
 class MainActivity : AppCompatActivity() {
     companion object {
-        const val TOPIC_NAME = "DH_Topic"
+        const val TOPIC_NAME = "DH_MQTT_Test"
+
+        const val OPTION_INTERVAL_START = "INTERVAL_START"
+        const val OPTION_INTERVAL_END = "INTERVAL_END"
     }
 
-    lateinit var messageAdapter: MessageAdapter
+    private lateinit var mqttAndroidClient: MqttAndroidClient
+    private lateinit var messageAdapter: MessageAdapter
+
+    private val disconnectedBufferOptions: DisconnectedBufferOptions
+        get() {
+            return DisconnectedBufferOptions().apply {
+                isBufferEnabled = true
+                bufferSize = 100
+                isPersistBuffer = true
+                isDeleteOldestMessages = false
+            }
+        }
+    private val mqttConnectionOption: MqttConnectOptions
+        get() {
+            return MqttConnectOptions().apply {
+                isCleanSession = false
+                isAutomaticReconnect = true
+//                setWill(TOPIC_NAME, "$TOPIC_NAME Open".toByteArray(), 1, true)
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -23,7 +49,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         messageAdapter = MessageAdapter(this, R.layout.item_message)
 
-        val mqttAndroidClient = MqttAndroidClient(
+        mqttAndroidClient = MqttAndroidClient(
             this,
             "tcp://test.mosquitto.org:1883",
             MqttClient.generateClientId()
@@ -34,13 +60,9 @@ class MainActivity : AppCompatActivity() {
             token.actionCallback = object : IMqttActionListener {
                 override fun onSuccess(asyncActionToken: IMqttToken) {
                     mqttAndroidClient.setBufferOpts(disconnectedBufferOptions)
-                    printMessage("MQTT_Test Connect : Success")
+                    printMessage("Connect", "Success")
                     try {
                         mqttAndroidClient.subscribe(TOPIC_NAME, 0)
-//                        mqttAndroidClient.subscribe(TOPIC_NAME, 0) { topic, message ->
-//                            val msg = String(message.payload)
-//                            printMessage("MQTT Message callback ($topic) : $msg")
-//                        }
                     } catch (e: MqttException) {
                         e.printStackTrace()
                     }
@@ -50,7 +72,7 @@ class MainActivity : AppCompatActivity() {
                     asyncActionToken: IMqttToken,
                     exception: Throwable
                 ) {
-                    printMessage("MQTT_Test Connect : Fail\n$exception")
+                    printMessage("Connect", "Fail $exception")
                 }
             }
 
@@ -59,7 +81,7 @@ class MainActivity : AppCompatActivity() {
 
                 override fun messageArrived(topic: String, message: MqttMessage) {
                     val msg = String(message.payload)
-                    printMessage("MQTT_Test Message ($topic) : $msg")
+                    printMessage("Message ($topic)", msg)
                 }
 
                 override fun deliveryComplete(token: IMqttDeliveryToken) {}
@@ -80,28 +102,65 @@ class MainActivity : AppCompatActivity() {
                 }
             })
         }
+
+        findViewById<Button>(R.id.button).setOnClickListener {
+            try {
+                val et = findViewById<EditText>(R.id.editText)
+                val textStr = et.text.trim().toString()
+
+                if (textStr.isNotEmpty()) {
+                    mqttAndroidClient.publish(
+                        TOPIC_NAME,
+                        "client : $textStr".toByteArray(),
+                        0,
+                        false
+                    )
+                    et.setText("")
+                }
+            } catch (e: MqttException) {
+                e.printStackTrace()
+            }
+        }
     }
 
-    private fun printMessage(message: String) {
-        Timber.e(message)
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.menu_interval, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.menu_start -> {
+                mqttAndroidClient.publish(
+                    TOPIC_NAME,
+                    OPTION_INTERVAL_START.toByteArray(),
+                    0,
+                    false
+                )
+                true
+            }
+            R.id.menu_end -> {
+                mqttAndroidClient.publish(
+                    TOPIC_NAME,
+                    OPTION_INTERVAL_END.toByteArray(),
+                    0,
+                    false
+                )
+                true
+            }
+            else -> {
+                return super.onOptionsItemSelected(item)
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        mqttAndroidClient.close()
+        super.onDestroy()
+    }
+
+    private fun printMessage(tag: String, message: String) {
+        Timber.e("MQTT_Test $tag $message")
         messageAdapter.add(message)
     }
-
-    private val disconnectedBufferOptions: DisconnectedBufferOptions
-        get() {
-            return DisconnectedBufferOptions().apply {
-                isBufferEnabled = true
-                bufferSize = 100
-                isPersistBuffer = true
-                isDeleteOldestMessages = false
-            }
-        }
-    private val mqttConnectionOption: MqttConnectOptions
-        get() {
-            return MqttConnectOptions().apply {
-                isCleanSession = false
-                isAutomaticReconnect = true
-                setWill(TOPIC_NAME, "I am going offline".toByteArray(), 1, true)
-            }
-        }
 }
