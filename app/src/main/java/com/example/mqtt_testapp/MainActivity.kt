@@ -15,10 +15,21 @@ import timber.log.Timber
 
 class MainActivity : AppCompatActivity() {
     companion object {
+        const val SERVER_URL = "tcp://test.mosquitto.org:1883"
         const val TOPIC_NAME = "DH_MQTT_Test"
 
-        const val OPTION_INTERVAL_START = "INTERVAL_START"
-        const val OPTION_INTERVAL_END = "INTERVAL_END"
+        const val OPTION_INTERVAL_START = "[Op01] Interval Start"
+        const val OPTION_INTERVAL_END = "[Op02] Interval End"
+
+        const val MESSAGE_SERVER = "[Server]"
+        const val MESSAGE_CLIENT = "[Client]"
+
+        const val TAG_HEADER = "MQTT_TEST"
+        const val TAG_SYSTEM = "[System]"
+        const val TAG_MESSAGE = "[Message]"
+
+        const val CONNECTION_SUCCESS = "Connection success"
+        const val CONNECTION_FAIL = "Connection fail"
     }
 
     private lateinit var mqttAndroidClient: MqttAndroidClient
@@ -48,19 +59,14 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_main)
         messageAdapter = MessageAdapter(this, R.layout.item_message)
-
-        mqttAndroidClient = MqttAndroidClient(
-            this,
-            "tcp://test.mosquitto.org:1883",
-            MqttClient.generateClientId()
-        )
+        mqttAndroidClient = MqttAndroidClient(this, SERVER_URL, MqttClient.generateClientId())
 
         try {
             val token = mqttAndroidClient.connect(mqttConnectionOption)
             token.actionCallback = object : IMqttActionListener {
                 override fun onSuccess(asyncActionToken: IMqttToken) {
                     mqttAndroidClient.setBufferOpts(disconnectedBufferOptions)
-                    printMessage("Connect", "Success")
+                    printMessage(TAG_SYSTEM, CONNECTION_SUCCESS)
                     try {
                         mqttAndroidClient.subscribe(TOPIC_NAME, 0)
                     } catch (e: MqttException) {
@@ -72,7 +78,7 @@ class MainActivity : AppCompatActivity() {
                     asyncActionToken: IMqttToken,
                     exception: Throwable
                 ) {
-                    printMessage("Connect", "Fail $exception")
+                    printMessage(TAG_SYSTEM, "$CONNECTION_FAIL $exception")
                 }
             }
 
@@ -80,8 +86,7 @@ class MainActivity : AppCompatActivity() {
                 override fun connectionLost(cause: Throwable) {}
 
                 override fun messageArrived(topic: String, message: MqttMessage) {
-                    val msg = String(message.payload)
-                    printMessage("Message ($topic)", msg)
+                    printMessage("$TAG_MESSAGE($topic)", String(message.payload))
                 }
 
                 override fun deliveryComplete(token: IMqttDeliveryToken) {}
@@ -111,7 +116,7 @@ class MainActivity : AppCompatActivity() {
                 if (textStr.isNotEmpty()) {
                     mqttAndroidClient.publish(
                         TOPIC_NAME,
-                        "client : $textStr".toByteArray(),
+                        "$MESSAGE_CLIENT $textStr".toByteArray(),
                         0,
                         false
                     )
@@ -160,7 +165,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun printMessage(tag: String, message: String) {
-        Timber.e("MQTT_Test $tag $message")
+        Timber.e("$TAG_HEADER $tag $message")
         messageAdapter.add(message)
     }
 }

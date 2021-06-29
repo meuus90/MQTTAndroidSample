@@ -6,6 +6,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.TextView
+import com.example.mqtt_testapp.MainActivity.Companion.MESSAGE_CLIENT
+import com.example.mqtt_testapp.MainActivity.Companion.MESSAGE_SERVER
 
 class MessageAdapter(context: Context, textViewResourceId: Int) :
     ArrayAdapter<String>(context, textViewResourceId) {
@@ -15,7 +17,14 @@ class MessageAdapter(context: Context, textViewResourceId: Int) :
         val root = convertView?:inflater.inflate(R.layout.item_message, parent, false)
 
         root.findViewById<TextView>(R.id.message).apply {
-            text = getItem(position)
+            val str = getItem(position)?:""
+            text = str
+
+            when{
+                str.contains(MESSAGE_SERVER) -> setBackgroundResource(R.color.placeHolderColor0)
+                str.contains(MESSAGE_CLIENT) -> setBackgroundResource(R.color.white)
+                else -> setBackgroundResource(R.color.placeHolderColor1)
+            }
         }
 
         return root
