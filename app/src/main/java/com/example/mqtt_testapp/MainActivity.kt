@@ -66,9 +66,9 @@ class MainActivity : AppCompatActivity() {
             token.actionCallback = object : IMqttActionListener {
                 override fun onSuccess(asyncActionToken: IMqttToken) {
                     mqttAndroidClient.setBufferOpts(disconnectedBufferOptions)
-                    printMessage(TAG_SYSTEM, CONNECTION_SUCCESS)
                     try {
                         mqttAndroidClient.subscribe(TOPIC_NAME, 0)
+                        printMessage(TAG_SYSTEM, CONNECTION_SUCCESS)
                     } catch (e: MqttException) {
                         e.printStackTrace()
                     }
